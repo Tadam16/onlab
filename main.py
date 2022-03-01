@@ -23,6 +23,10 @@ class Block(Module):
     def forward(self, x):
         return self.relu2(self.switchnorm2(self.conv2(self.relu1(self.switchnorm1(self.conv1(x))))))
 
+class Encoder:
+
+class Decoder:
+
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
