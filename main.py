@@ -1,3 +1,4 @@
+import torchvision
 from torch.nn import ConvTranspose2d
 from torch.nn import Conv2d
 from torch.nn import MaxPool2d
@@ -24,15 +25,15 @@ class Block(Module):
         return self.relu(self.switchnorm2(self.conv2(self.relu(self.switchnorm1(self.conv1(x))))))
 
 class NestedUnet(Module):
-    def __init__(self, channels, depth):
+    def __init__(self, channels):
         super().__init__()
 
         self.pool = MaxPool2d(2)
         self.up = Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.depth = depth
+        self.depth = len(channels) - 1
 
         self.blocks = []
-        for i in range(1, depth + 1):
+        for i in range(1, self.depth + 1):
             level = []
             for j in range(1, i + 1):
                 level.append(Block(channels[i - 1], channels[i]))
@@ -41,12 +42,39 @@ class NestedUnet(Module):
     def forward(self, x):
         results = [[x]]
         for i in range(1, self.depth + 1):
-            levelresults = [results[i - 1][0]]
+
+            if i != 1:
+                levelresults = self.pool(results[i - 1][0])
+            else:
+                levelresults = [results[i - 1][0]]
+
             for j in range(1, i + 1):
-                levelresults.append(self.blocks[i-1][j-1](levelresults[]))
-            #todo fixthis
+
+                if j == 1:
+                    input = levelresults[j - 1]
+                else:
+                    input = self.up(levelresults[j - 1])
+
+                for k in range(1, i):
+                    levelinput = self.crop(results[k][j], input)
+                    input = torch.cat([input, levelinput], dim=1)
+
+                levelresults.append(self.blocks[i-1][j-1](input))
+
             results.append(levelresults)
+
         return results[self.depth][self.depth]
+
+    def crop(self, encFeatures, x):
+        (_,_,H,W) = x.shape
+        return torchvision.transforms.CenterCrop([H,W])(encFeatures)
+
+def loss():
+
+
+def train():
+
+
 
 
 if __name__ == '__main__':
