@@ -6,8 +6,6 @@ from torch.nn import Module
 from torch.nn import ModuleList
 from torch.nn import Upsample
 from torch.nn import ReLU
-from torchvision.transforms import CenterCrop
-from torch.nn import functional as F
 import torch
 from switchnorm import SwitchNorm2d
 
@@ -73,7 +71,8 @@ def loss():
 
 
 def train():
-
+    model = NestedUnet()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.99, weight_decay=1e-8)
 
 if __name__ == '__main__':
     for i in range(1, 5):
