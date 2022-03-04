@@ -25,11 +25,11 @@ class Block(Module):
         return self.relu(self.switchnorm2(self.conv2(self.relu(self.switchnorm1(self.conv1(x))))))
 
 class NestedUnet(Module):
-    def __init__(self, channels):
+    def __init__(self, channels = (9, 35, 70, 120, 280, 560)):
         super().__init__()
 
         self.pool = MaxPool2d(2)
-        self.up = Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.up = Upsample(scale_factor=2, mode='bilinear', align_corners=True) #todo biztos igy?
         self.depth = len(channels) - 1
 
         self.blocks = []
@@ -73,8 +73,6 @@ def loss():
 
 
 def train():
-
-
 
 
 if __name__ == '__main__':
