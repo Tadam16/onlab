@@ -67,7 +67,8 @@ class NestedUnet(Module):
         (_,_,H,W) = x.shape
         return torchvision.transforms.CenterCrop([H,W])(encFeatures)
 
-def loss():
+def loss(output, expected):
+
 
 
 def train():
