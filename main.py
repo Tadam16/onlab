@@ -23,18 +23,31 @@ class Block(Module):
         return self.relu(self.switchnorm2(self.conv2(self.relu(self.switchnorm1(self.conv1(x))))))
 
 class NestedUnet(Module):
-    def __init__(self, channels = (9, 35, 70, 120, 280, 560)):
+    def __init__(self, middlechannels = (35, 70, 140, 280, 560), inchannels = 9, outchannels = 2):
         super().__init__()
 
         self.pool = MaxPool2d(2)
         self.up = Upsample(scale_factor=2, mode='bilinear', align_corners=True) #todo biztos igy?
-        self.depth = len(channels) - 1
+        self.depth = len(middlechannels)
 
         self.blocks = []
-        for i in range(1, self.depth + 1):
+        for i in range(self.depth):
             level = []
-            for j in range(1, i + 1):
-                level.append(Block(channels[i - 1], channels[i]))
+            for j in range(i + 1):
+
+                inputs = j * middlechannels[i - j]
+                if j == 0 and i == 0:
+                    inputs += inchannels
+                elif j == 0:
+                    inputs += middlechannels[i - 1]
+                else:
+                    inputs += middlechannels[i - j + 1]
+
+                outputs = middlechannels[i - j]
+                if j == self.depth - 1 and i == self.depth-1:
+                    outputs = outchannels
+
+                level.append(Block(inputs, outputs))
             self.blocks.append(level)
 
     def forward(self, x):
