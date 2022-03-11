@@ -51,37 +51,31 @@ class NestedUnet(Module):
             self.blocks.append(level)
 
     def forward(self, x):
-        results = [[x]]
-        for i in range(1, self.depth + 1):
+        results = [[]]
 
-            if i != 1:
-                levelresults = self.pool(results[i - 1][0])
-            else:
-                levelresults = [results[i - 1][0]]
-
-            for j in range(1, i + 1):
-
-                if j == 1:
-                    input = levelresults[j - 1]
-                else:
-                    input = self.up(levelresults[j - 1])
-
-                for k in range(1, i):
-                    levelinput = self.crop(results[k][j], input)
-                    input = torch.cat([input, levelinput], dim=1)
-
-                levelresults.append(self.blocks[i-1][j-1](input))
-
+        for i in range(self.depth):
+            levelresults = []
             results.append(levelresults)
+            for j in range(i + 1):
 
-        return results[self.depth][self.depth]
+                block = self.blocks[i][j]
 
-    def crop(self, encFeatures, x):
-        (_,_,H,W) = x.shape
-        return torchvision.transforms.CenterCrop([H,W])(encFeatures)
+                if(i == 0 and j == 0):
+                    input = x
+                elif(j == 0):
+                    input = self.pool(results[i-1][0])
+                else:
+                    input = self.up(results[i][j-1])
+
+                for k in range(j):
+                    input = torch.cat([input, results[i - k - 1][j - k - 1]], dim=1)
+
+                levelresults.append(block(input))
+
+        return results[self.depth - 1][self.depth - 1]
 
 def loss(output, expected):
-
+    print("loss function not implemented")
 
 
 def train():
