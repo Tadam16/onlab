@@ -78,6 +78,8 @@ def loss(output, expected):
     print("loss function not implemented")
 
 
+
+
 def train():
     model = NestedUnet()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.99, weight_decay=1e-8)
