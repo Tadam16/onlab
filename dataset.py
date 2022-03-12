@@ -20,13 +20,26 @@ import glob
 class Vessel12Dataset(torch.utils.data.Dataset):
 
     def __init__(self):
+        self.mask = None
+        self.img = None
         self.imgList = glob.glob("vessel12dataset\imgs\*.mhd")
         self.maskList = glob.glob("vessel12dataset\masks\*.mhd")
 
+    def loadimage(self, idx):
+        self.img = sitk.GetArrayFromImage(sitk.ReadImage(self.imgList[idx]))
+        self.mask = sitk.GetArrayFromImage(sitk.ReadImage(self.maskList[idx]))
+
     def __getitem__(self, idx):
-        img = sitk.GetArrayFromImage(sitk.ReadImage(self.imgList[idx]))
-        mask = sitk.GetArrayFromImage(sitk.ReadImage(self.maskList[idx]))
-        #todo normalization, shaping, proper indices
+        idx = idx + 4
+
+        resimg = self.img[idx - 4:idx + 5, :, :]
+        resmask = self.mask[idx, :, :]
+
+        return resimg, resmask
+
+        #todo normalization and to tensor
 
     def __len__(self):
-        return len(self.imgList)
+        if self.img is None:
+            return 0
+        return self.img.shape[0] - 8

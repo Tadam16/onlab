@@ -8,16 +8,16 @@ from torch.nn import Upsample
 from torch.nn import ReLU
 import torch
 from switchnorm import SwitchNorm2d
-
+from dataset import Vessel12Dataset
 
 class Block(Module):
     def __init__(self, inChannels, outChannels):
         super().__init__()
         self.conv1 = Conv2d(inChannels, outChannels, 3)
-        self.switchnorm1 = SwitchNorm2d() #todo params
+        self.switchnorm1 = SwitchNorm2d(outChannels) #todo params
         self.relu = ReLU()
         self.conv2 = Conv2d(outChannels, outChannels, 3)
-        self.switchnorm2 = SwitchNorm2d() #todo params
+        self.switchnorm2 = SwitchNorm2d(outChannels) #todo params
 
     def forward(self, x):
         return self.relu(self.switchnorm2(self.conv2(self.relu(self.switchnorm1(self.conv1(x))))))
@@ -85,5 +85,6 @@ def train():
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.99, weight_decay=1e-8)
 
 if __name__ == '__main__':
+    model = NestedUnet()
     for i in range(1, 5):
         print(i)
