@@ -4,6 +4,7 @@ from torch.nn import Conv2d
 from torch.nn import MaxPool2d
 from torch.nn import Module
 from torch.nn import ModuleList
+from torch.utils.data import DataLoader
 from torch.nn import Upsample
 from torch.nn import ReLU
 import torch
@@ -13,10 +14,10 @@ from dataset import Vessel12Dataset
 class Block(Module):
     def __init__(self, inChannels, outChannels):
         super().__init__()
-        self.conv1 = Conv2d(inChannels, outChannels, 3)
+        self.conv1 = Conv2d(inChannels, outChannels, 3, 1, padding='same')
         self.switchnorm1 = SwitchNorm2d(outChannels) #todo params
         self.relu = ReLU()
-        self.conv2 = Conv2d(outChannels, outChannels, 3)
+        self.conv2 = Conv2d(outChannels, outChannels, 3, 1, padding='same')
         self.switchnorm2 = SwitchNorm2d(outChannels) #todo params
 
     def forward(self, x):
@@ -51,7 +52,7 @@ class NestedUnet(Module):
             self.blocks.append(level)
 
     def forward(self, x):
-        results = [[]]
+        results = []
 
         for i in range(self.depth):
             levelresults = []
@@ -86,7 +87,8 @@ if __name__ == '__main__':
     model = NestedUnet()
     dataset = Vessel12Dataset()
     dataset.loadimage(5)
-    (img, mask) = dataset.__getitem__(67)
+    loader = DataLoader(dataset, 1, True)
+    (img, mask) = next(iter(loader))
     output = model(img)
     for i in range(1, 5):
         print(i)

@@ -37,9 +37,7 @@ class Vessel12Dataset(torch.utils.data.Dataset):
         resimg = self.img[idx - 4:idx + 5, :, :]
         resmask = self.mask[idx, :, :]
 
-        return torch.from_numpy(resimg), torch.from_numpy(resmask)
-
-        #todo to tensor
+        return torch.from_numpy(resimg).float(), torch.from_numpy(resmask).float()
 
     def __len__(self):
         if self.img is None:
