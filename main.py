@@ -10,6 +10,7 @@ from torch.nn import ReLU
 import torch
 from switchnorm import SwitchNorm2d
 from dataset import Vessel12Dataset
+from torch.nn import NLLLoss
 
 class Block(Module):
     def __init__(self, inChannels, outChannels):
@@ -31,9 +32,9 @@ class NestedUnet(Module):
         self.up = Upsample(scale_factor=2, mode='bilinear', align_corners=True) #todo biztos igy?
         self.depth = len(middlechannels)
 
-        self.blocks = []
+        self.blocks = torch.nn.ModuleList()
         for i in range(self.depth):
-            level = []
+            level = torch.nn.ModuleList()
             for j in range(i + 1):
 
                 inputs = j * middlechannels[i - j]
@@ -75,20 +76,33 @@ class NestedUnet(Module):
 
         return results[self.depth - 1][self.depth - 1]
 
-def loss(output, expected):
-    print("loss function not implemented")
-
-
 def train():
     model = NestedUnet()
+    device = torch.device("cpu")
+    model = model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.99, weight_decay=1e-8)
+    lossfunc = NLLLoss()
 
-if __name__ == '__main__':
-    model = NestedUnet()
     dataset = Vessel12Dataset()
     dataset.loadimage(5)
     loader = DataLoader(dataset, 1, True)
-    (img, mask) = next(iter(loader))
-    output = model(img)
+
+    #training
+    for i in range(100):
+        for (j, (x, y)) in enumerate(loader):
+            (x, y) = (x.to(device), y.to(device))
+
+            pred = model(x)
+            loss = lossfunc(pred, y)
+            print(str(i) + " " + str(loss))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+    #evaluating
+
+
+if __name__ == '__main__':
+    train()
     for i in range(1, 5):
         print(i)
