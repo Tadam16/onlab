@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import SimpleITK as sitk
 import glob
+from torchvision import transforms
 
 
 
@@ -27,6 +28,7 @@ class Vessel12Dataset(torch.utils.data.Dataset):
 
     def loadimage(self, idx):
         self.img = sitk.GetArrayFromImage(sitk.ReadImage(self.imgList[idx]))
+        self.img = (np.clip(self.img, -1200, 600) + 1200) / 1800.0
         self.mask = sitk.GetArrayFromImage(sitk.ReadImage(self.maskList[idx]))
 
     def __getitem__(self, idx):
@@ -35,9 +37,9 @@ class Vessel12Dataset(torch.utils.data.Dataset):
         resimg = self.img[idx - 4:idx + 5, :, :]
         resmask = self.mask[idx, :, :]
 
-        return resimg, resmask
+        return torch.from_numpy(resimg), torch.from_numpy(resmask)
 
-        #todo normalization and to tensor
+        #todo to tensor
 
     def __len__(self):
         if self.img is None:
