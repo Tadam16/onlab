@@ -1,108 +1,102 @@
-import torchvision
-from torch.nn import ConvTranspose2d
-from torch.nn import Conv2d
-from torch.nn import MaxPool2d
-from torch.nn import Module
-from torch.nn import ModuleList
 from torch.utils.data import DataLoader
-from torch.nn import Upsample
-from torch.nn import ReLU
+from dataset import Vessel12DatasetRepresentative, Vessel12Dataset
+from model import NestedUnet
+import numpy as np
+import torch.utils.data
+import os
 import torch
-from switchnorm import SwitchNorm2d
-from dataset import Vessel12Dataset
-from torch.nn import NLLLoss
+import matplotlib.pyplot as plt
 
-class Block(Module):
-    def __init__(self, inChannels, outChannels):
-        super().__init__()
-        self.conv1 = Conv2d(inChannels, outChannels, 3, 1, padding='same')
-        self.switchnorm1 = SwitchNorm2d(outChannels) #todo params
-        self.relu = ReLU()
-        self.conv2 = Conv2d(outChannels, outChannels, 3, 1, padding='same')
-        self.switchnorm2 = SwitchNorm2d(outChannels) #todo params
-
-    def forward(self, x):
-        return self.relu(self.switchnorm2(self.conv2(self.relu(self.switchnorm1(self.conv1(x))))))
-
-class NestedUnet(Module):
-    def __init__(self, middlechannels = (35, 70, 140, 280, 560), inchannels = 9, outchannels = 2):
-        super().__init__()
-
-        self.pool = MaxPool2d(2)
-        self.up = Upsample(scale_factor=2, mode='bilinear', align_corners=True) #todo biztos igy?
-        self.depth = len(middlechannels)
-
-        self.blocks = torch.nn.ModuleList()
-        for i in range(self.depth):
-            level = torch.nn.ModuleList()
-            for j in range(i + 1):
-
-                inputs = j * middlechannels[i - j]
-                if j == 0 and i == 0:
-                    inputs += inchannels
-                elif j == 0:
-                    inputs += middlechannels[i - 1]
-                else:
-                    inputs += middlechannels[i - j + 1]
-
-                outputs = middlechannels[i - j]
-                if j == self.depth - 1 and i == self.depth-1:
-                    outputs = outchannels
-
-                level.append(Block(inputs, outputs))
-            self.blocks.append(level)
-
-    def forward(self, x):
-        results = []
-
-        for i in range(self.depth):
-            levelresults = []
-            results.append(levelresults)
-            for j in range(i + 1):
-
-                block = self.blocks[i][j]
-
-                if(i == 0 and j == 0):
-                    input = x
-                elif(j == 0):
-                    input = self.pool(results[i-1][0])
-                else:
-                    input = self.up(results[i][j-1])
-
-                for k in range(j):
-                    input = torch.cat([input, results[i - k - 1][j - k - 1]], dim=1)
-
-                levelresults.append(block(input))
-
-        return results[self.depth - 1][self.depth - 1]
+dspath = "./dataset"
 
 def train():
+    with open('stop.txt', 'w'):
+        pass
+
+    device = torch.device("cuda")
     model = NestedUnet()
-    device = torch.device("cpu")
     model = model.to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.99, weight_decay=1e-8)
-    lossfunc = NLLLoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    lossfunc = torch.nn.BCELoss()
 
-    dataset = Vessel12Dataset()
-    dataset.loadimage(5)
-    loader = DataLoader(dataset, 1, True)
+    batch_size = 5
+    train_iters = 100
+    test_iters = 100
+    epochs = 10
 
-    #training
-    for i in range(100):
+    k = 0
+    evallosses = []
+    trainlosses = []
+    trainlossum = 0
+    model.train()
+    dataset = Vessel12DatasetRepresentative(dspath)
+    testDataset = Vessel12DatasetRepresentative(dspath)
+    testDataset.loadimage(list(range(11, 16)), 100)
+    minibatches_seen = []
+
+    # training
+    for i in range(epochs):
+        if (not os.path.exists('stop.txt')):
+            break
+
+        dataset.loadimage(list(range(0, 11)), 100)
+        loader = DataLoader(dataset, batch_size, True)
+
         for (j, (x, y)) in enumerate(loader):
-            (x, y) = (x.to(device), y.to(device))
 
+            (x, y) = (x.to(device), y.to(device))
             pred = model(x)
             loss = lossfunc(pred, y)
-            print(str(i) + " " + str(loss))
+            trainlossum += loss
+            if (k % (train_iters // batch_size) == 0 and k != 0):
+                evallosses.append(evalmodel(testDataset, model, test_iters // batch_size, lossfunc, batch_size,
+                                            device).cpu().detach().numpy())
+                trainlosses.append(trainlossum.cpu().detach().numpy() / (train_iters // batch_size))
+                minibatches_seen.append(k)
+                visualizelosses(evallosses, trainlosses, minibatches_seen, batch_size)
+                trainlossum = 0
+                print("Train loss: " + str(trainlosses[-1]) + " Test loss: " + str(evallosses[-1]))
+                if (not os.path.exists('stop.txt')):
+                    break
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            k += 1
 
-    #evaluating
+    visualizelosses(evallosses, trainlosses, minibatches_seen, batch_size)
+    torch.save(model, "trained_models/onlab_model_low_mem_ce_dropout_bs5.pt")
 
+
+def evalmodel(dataset, model, limit, lossfunc, batch_size, device):
+    loader = DataLoader(dataset, batch_size, True)
+    lossum = 0
+    k = 0
+    with torch.no_grad():
+        for (j, (x, y)) in enumerate(loader):
+            (x, y) = (x.to(device), y.to(device))
+            pred = model(x)
+            lossum += lossfunc(pred, y)
+            k += 1
+            if (k == limit):
+                break
+
+    return lossum / k
+
+
+def visualizelosses(evalloss, trainloss, minibatches_seen, batch_size):
+    plt.style.use("ggplot")
+    plt.figure()
+    minibatches_seen = np.multiply(minibatches_seen, batch_size)
+    plt.plot(minibatches_seen, evalloss, color="red", label="test loss")
+    plt.plot(minibatches_seen, trainloss, color="blue", label="train loss")
+    plt.xlabel("Slices seen")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig("loss.png")
+    #plt.show()
 
 if __name__ == '__main__':
     train()
-    for i in range(1, 5):
-        print(i)
+    print("Training completed!")
+    print(torch.cuda.max_memory_reserved(torch.device("cuda")))
