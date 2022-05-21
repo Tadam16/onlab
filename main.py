@@ -1,20 +1,26 @@
 from torch.utils.data import DataLoader
+
+import model_dropout
+import model_switch_norm
+import model_switchnorm_dropout
 from dataset import Vessel12DatasetRepresentative, Vessel12Dataset
-from model import NestedUnet
+import model_no_normalization
 import numpy as np
 import torch.utils.data
 import os
 import torch
 import matplotlib.pyplot as plt
+import helper_functions
 
 dspath = "./dataset"
 
-def train():
+
+def train(modelClass, modelname):
     with open('stop.txt', 'w'):
         pass
 
     device = torch.device("cuda")
-    model = NestedUnet()
+    model = modelClass()
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters())
     lossfunc = torch.nn.BCELoss()
@@ -22,7 +28,7 @@ def train():
     batch_size = 5
     train_iters = 100
     test_iters = 100
-    epochs = 10
+    epochs = 30
 
     k = 0
     evallosses = []
@@ -53,19 +59,24 @@ def train():
                                             device).cpu().detach().numpy())
                 trainlosses.append(trainlossum.cpu().detach().numpy() / (train_iters // batch_size))
                 minibatches_seen.append(k)
-                visualizelosses(evallosses, trainlosses, minibatches_seen, batch_size)
+                # visualizelosses(evallosses, trainlosses, minibatches_seen, batch_size)
                 trainlossum = 0
-                print("Train loss: " + str(trainlosses[-1]) + " Test loss: " + str(evallosses[-1]))
+                print("Slices seen: " + str(k * batch_size) + " Train loss: " + str(trainlosses[-1]) + " Test loss: " + str(evallosses[-1]))
+
                 if (not os.path.exists('stop.txt')):
                     break
+
+                if torch.cuda.max_memory_reserved(device) > 9e9:
+                    print("Memory limit exceeded, quitting...")
+                    exit(1)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             k += 1
 
-    visualizelosses(evallosses, trainlosses, minibatches_seen, batch_size)
-    torch.save(model, "trained_models/onlab_model_low_mem_ce_dropout_bs5.pt")
+    visualizelosses(evallosses, trainlosses, minibatches_seen, batch_size, modelname)
+    torch.save(model, "trained_models/" + modelname + ".pt")
 
 
 def evalmodel(dataset, model, limit, lossfunc, batch_size, device):
@@ -80,11 +91,10 @@ def evalmodel(dataset, model, limit, lossfunc, batch_size, device):
             k += 1
             if (k == limit):
                 break
-
     return lossum / k
 
 
-def visualizelosses(evalloss, trainloss, minibatches_seen, batch_size):
+def visualizelosses(evalloss, trainloss, minibatches_seen, batch_size, modelname):
     plt.style.use("ggplot")
     plt.figure()
     minibatches_seen = np.multiply(minibatches_seen, batch_size)
@@ -93,10 +103,23 @@ def visualizelosses(evalloss, trainloss, minibatches_seen, batch_size):
     plt.xlabel("Slices seen")
     plt.ylabel("Loss")
     plt.legend()
-    plt.savefig("loss.png")
-    #plt.show()
+    plt.savefig("losses/" + modelname + "_loss.png")
+    plt.close()
+    # plt.show()
 
 if __name__ == '__main__':
-    train()
+
+    train(model_no_normalization.NestedUnet, "onlab_model_no_norm")
+    helper_functions.evaluate(dspath, "onlab_model_no_norm")
+
+    train(model_switch_norm.NestedUnet, "onlab_model_switchnorm")
+    helper_functions.evaluate(dspath, "onlab_model_switchnorm")
+
+    train(model_dropout.NestedUnet, "onlab_model_dropout")
+    helper_functions.evaluate(dspath, "onlab_model_dropout")
+
+    train(model_switchnorm_dropout.NestedUnet, "onlab_model_switchnorm_dropout")
+    helper_functions.evaluate(dspath, "onlab_model_switchnorm_dropout")
+
     print("Training completed!")
     print(torch.cuda.max_memory_reserved(torch.device("cuda")))
