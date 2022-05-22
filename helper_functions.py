@@ -54,7 +54,7 @@ def evaluate(dspath, modelname):
     plt.close()
 
 def translate_full(dspath, idx):
-    model = torch.load("trained_models/onlab_model_switchnorm_dropout40k.pt")
+    model = torch.load("trained_models/model_switchnorm_dropout_autoimg_cut_fp_punish.pt")
     ds = Vessel12Dataset(dspath)
     ds.loadimage(idx)
     dl = DataLoader(ds, shuffle=False)

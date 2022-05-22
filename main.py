@@ -5,6 +5,7 @@ import model_switch_norm
 import model_switchnorm_dropout
 from dataset import Vessel12DatasetRepresentative, Vessel12Dataset, Vessel12DatasetRepresentativewNoise
 import model_no_normalization
+import customLoss
 import numpy as np
 import torch.utils.data
 import os
@@ -28,12 +29,14 @@ def train(modelClass, modelname, inname = None):
 
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, eps=1e-7)
-    lossfunc = torch.nn.BCELoss()
+
+
+    lossfunc = customLoss.FalsePositiveManglerLoss(device)
 
     batch_size = 5
     train_iters = 100
     test_iters = 100
-    epochs = 20
+    epochs = 10
 
     seeninit = 0
     k = seeninit/batch_size
@@ -117,8 +120,8 @@ def visualizelosses(evalloss, trainloss, minibatches_seen, batch_size, modelname
 
 if __name__ == '__main__':
 
-    #for i in range(11, 16):
-    #    helper_functions.translate_full(dspath, i)
+    for i in range(16, 20):
+        helper_functions.translate_full(dspath, i)
 
     #train(model_no_normalization.NestedUnet, "onlab_model_no_norm")
     #helper_functions.evaluate(dspath, "onlab_model_no_norm")
@@ -129,8 +132,8 @@ if __name__ == '__main__':
     #train(model_dropout.NestedUnet, "onlab_model_dropout")
     #helper_functions.evaluate(dspath, "onlab_model_dropout")
 
-    #train(model_switchnorm_dropout.NestedUnet, "model_switchnorm_dropout_autoimg_cut_trained", "model_switchnorm_dropout_autoimg_cut")
-    helper_functions.evaluate(dspath, "model_switchnorm_dropout_autoimg_cut_trained")
+    #train(model_switchnorm_dropout.NestedUnet, "model_switchnorm_dropout_autoimg_cut_fp_punish", "model_switchnorm_dropout_autoimg_cut_trained")
+    #helper_functions.evaluate(dspath, "model_switchnorm_dropout_autoimg_cut_fp_punish")
 
     print("Training completed!")
     print(torch.cuda.max_memory_reserved(torch.device("cuda")))
