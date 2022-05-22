@@ -20,6 +20,7 @@ def evaluate(dspath, modelname):
     with torch.no_grad():
         model.eval()
         x = x.to(device)
+        x = x[:, 0, :, :].reshape([x.shape[0], 1, 512, 512])
         out = model(x)
 
         out = out.cpu().detach().numpy()
@@ -53,7 +54,7 @@ def evaluate(dspath, modelname):
     plt.close()
 
 def translate_full(dspath, idx):
-    model = torch.load("trained_models/model_switchnorm_dropout_autoimg_cut_fp_punish.pt")
+    model = torch.load("trained_models/2d_unet_no_help.pt")
     ds = Vessel12Dataset(dspath)
     ds.loadimage(idx)
     dl = DataLoader(ds, shuffle=False)
@@ -63,6 +64,7 @@ def translate_full(dspath, idx):
         for (j, (x, y)) in enumerate(dl):
             device = torch.device("cuda")
             x = x.to(device)
+            x = x[:, 0, :, :].reshape([x.shape[0], 1, 512, 512])
             pred = model(x)
             pred = pred.cpu().detach().numpy()
             pred = pred[0, 0, :, :]

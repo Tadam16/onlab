@@ -7,7 +7,10 @@ import os
 import torch
 import matplotlib.pyplot as plt
 import helper_functions
-import model
+import model_no_reg
+import model_batch_norm
+import model_switch_norm
+import model_dropout
 
 dspath = "./dataset"
 
@@ -29,10 +32,10 @@ def train(modelClass, modelname, inname = None):
 
     lossfunc = torch.nn.BCELoss()
 
-    batch_size = 5
-    train_iters = 100
-    test_iters = 100
-    epochs = 10
+    batch_size = 12
+    train_iters = 200
+    test_iters = 200
+    epochs = 5
 
     seeninit = 0
     k = seeninit/batch_size
@@ -42,7 +45,7 @@ def train(modelClass, modelname, inname = None):
     model.train()
     dataset = Vessel12DatasetRepresentative(dspath)
     testDataset = Vessel12DatasetRepresentative(dspath)
-    testDataset.loadimage(list(range(11, 16)), 100)
+    testDataset.loadimage(list(range(11, 16)), 200)
     minibatches_seen = []
 
     # training
@@ -50,16 +53,17 @@ def train(modelClass, modelname, inname = None):
         if (not os.path.exists('stop.txt')):
             break
 
-        dataset.loadimage(list(range(0, 11)), 100)
+        dataset.loadimage(list(range(0, 11)), 200)
         loader = DataLoader(dataset, batch_size, True)
 
         for (j, (x, y)) in enumerate(loader):
 
             (x, y) = (x.to(device), y.to(device))
+            x = x[:, 0, :, :].reshape([x.shape[0], 1, 512, 512])
             pred = model(x)
             loss = lossfunc(pred, y)
             trainlossum += loss
-            if (k % (train_iters // batch_size) == 0 and k != seeninit/batch_size):
+            if (k % (train_iters // batch_size) == 0 and k != seeninit//batch_size):
                 evallosses.append(evalmodel(testDataset, model, test_iters // batch_size, lossfunc, batch_size,
                                             device).cpu().detach().numpy())
                 trainlosses.append(trainlossum.cpu().detach().numpy() / (train_iters // batch_size))
@@ -71,7 +75,7 @@ def train(modelClass, modelname, inname = None):
                 if (not os.path.exists('stop.txt')):
                     break
 
-                if torch.cuda.max_memory_reserved(device) > 9e9:
+                if torch.cuda.max_memory_reserved(device) > 9.5e9:
                     print("Memory limit exceeded, quitting...")
                     exit(1)
 
@@ -91,6 +95,7 @@ def evalmodel(dataset, model, limit, lossfunc, batch_size, device):
     with torch.no_grad():
         for (j, (x, y)) in enumerate(loader):
             (x, y) = (x.to(device), y.to(device))
+            x = x[:, 0, :, :].reshape([x.shape[0], 1, 512, 512])
             pred = model(x)
             lossum += lossfunc(pred, y)
             k += 1
@@ -114,8 +119,20 @@ def visualizelosses(evalloss, trainloss, minibatches_seen, batch_size, modelname
 
 if __name__ == '__main__':
 
-    train(model.Unet, "2d_unet_whelp")
-    helper_functions.evaluate(dspath, "2d_unet_whelp")
+    for i in range(16, 19):
+        helper_functions.translate_full(dspath, i)
+
+    #train(model.Unet, "2d_unet_no_help", "2d_unet_no_help")
+    #helper_functions.evaluate(dspath, "2d_unet_no_help")
+
+    #train(model_dropout.Unet, "2d_unet_dropout")
+    #helper_functions.evaluate(dspath, "2d_unet_dropout")
+
+    #train(model_batch_norm.Unet, "2d_unet_batchnorm")
+    #helper_functions.evaluate(dspath, "2d_unet_batchnorm")
+
+    #train(model_switch_norm.Unet, "2d_unet_switchnorm")
+    #helper_functions.evaluate(dspath, "2d_unet_switchnorm")
 
     print("Training completed!")
     print(torch.cuda.max_memory_reserved(torch.device("cuda")))

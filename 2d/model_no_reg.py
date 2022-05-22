@@ -63,7 +63,7 @@ class Decoder(torch.nn.Module):
 
 class Unet(torch.nn.Module):
 
-    def __init__(self, encChannels = (2, 16, 32, 64), decChannels = (64, 32, 16), nbClasses = 1, outSize = (512, 512)):
+    def __init__(self, encChannels = (1, 16, 32, 64), decChannels = (64, 32, 16), nbClasses = 1, outSize = (512, 512)):
         super().__init__()
 
         self.Encoder = Encoder(encChannels)
