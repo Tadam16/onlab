@@ -1,10 +1,6 @@
 from torch.utils.data import DataLoader
 
-import model_dropout
-import model_switch_norm
-import model_switchnorm_dropout
-from dataset import Vessel12DatasetRepresentative, Vessel12Dataset, Vessel12DatasetRepresentativewNoise
-import model_no_normalization
+from dataset import Vessel12DatasetRepresentative, Vessel12DatasetRepresentativewNoise
 import customLoss
 import numpy as np
 import torch.utils.data
