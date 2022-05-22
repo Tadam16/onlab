@@ -27,11 +27,10 @@ class EndBlock(Module):
         self.switchnorm1 = SwitchNorm2d(outChannels)
         self.relu = ReLU()
         self.conv2 = Conv2d(outChannels, outChannels, 3, 1, (1, 1))
-        self.dropout = torch.nn.Dropout2d(0.1)
         self.sigmoid = Sigmoid()
 
     def forward(self, x):
-        return self.sigmoid(self.conv2(self.relu(self.dropout(self.switchnorm1(self.conv1(x))))))
+        return self.sigmoid(self.conv2(self.relu(self.switchnorm1(self.conv1(x)))))
 
 class NestedUnet(Module):
     def __init__(self, middlechannels = (35, 70, 140, 280, 560), inchannels = 10, outchannels = 1):

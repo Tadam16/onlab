@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 import model_dropout
 import model_switch_norm
 import model_switchnorm_dropout
-from dataset import Vessel12DatasetRepresentative, Vessel12Dataset
+from dataset import Vessel12DatasetRepresentative, Vessel12Dataset, Vessel12DatasetRepresentativewNoise
 import model_no_normalization
 import numpy as np
 import torch.utils.data
@@ -15,27 +15,33 @@ import helper_functions
 dspath = "./dataset"
 
 
-def train(modelClass, modelname):
+def train(modelClass, modelname, inname = None):
     with open('stop.txt', 'w'):
         pass
 
     device = torch.device("cuda")
-    model = modelClass()
+
+    if inname is not None:
+        model = torch.load("trained_models/" + inname + ".pt", map_location=device)
+    else:
+        model = modelClass()
+
     model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, eps=1e-7)
     lossfunc = torch.nn.BCELoss()
 
     batch_size = 5
     train_iters = 100
     test_iters = 100
-    epochs = 30
+    epochs = 20
 
-    k = 0
+    seeninit = 0
+    k = seeninit/batch_size
     evallosses = []
     trainlosses = []
     trainlossum = 0
     model.train()
-    dataset = Vessel12DatasetRepresentative(dspath)
+    dataset = Vessel12DatasetRepresentativewNoise(dspath)
     testDataset = Vessel12DatasetRepresentative(dspath)
     testDataset.loadimage(list(range(11, 16)), 100)
     minibatches_seen = []
@@ -51,10 +57,11 @@ def train(modelClass, modelname):
         for (j, (x, y)) in enumerate(loader):
 
             (x, y) = (x.to(device), y.to(device))
+            x = x[:,0:9, :,:]
             pred = model(x)
             loss = lossfunc(pred, y)
             trainlossum += loss
-            if (k % (train_iters // batch_size) == 0 and k != 0):
+            if (k % (train_iters // batch_size) == 0 and k != seeninit/batch_size):
                 evallosses.append(evalmodel(testDataset, model, test_iters // batch_size, lossfunc, batch_size,
                                             device).cpu().detach().numpy())
                 trainlosses.append(trainlossum.cpu().detach().numpy() / (train_iters // batch_size))
@@ -86,6 +93,7 @@ def evalmodel(dataset, model, limit, lossfunc, batch_size, device):
     with torch.no_grad():
         for (j, (x, y)) in enumerate(loader):
             (x, y) = (x.to(device), y.to(device))
+            x = x[:, 0:9, :, :]
             pred = model(x)
             lossum += lossfunc(pred, y)
             k += 1
@@ -109,17 +117,20 @@ def visualizelosses(evalloss, trainloss, minibatches_seen, batch_size, modelname
 
 if __name__ == '__main__':
 
-    train(model_no_normalization.NestedUnet, "onlab_model_no_norm")
-    helper_functions.evaluate(dspath, "onlab_model_no_norm")
+    #for i in range(11, 16):
+    #    helper_functions.translate_full(dspath, i)
 
-    train(model_switch_norm.NestedUnet, "onlab_model_switchnorm")
-    helper_functions.evaluate(dspath, "onlab_model_switchnorm")
+    #train(model_no_normalization.NestedUnet, "onlab_model_no_norm")
+    #helper_functions.evaluate(dspath, "onlab_model_no_norm")
 
-    train(model_dropout.NestedUnet, "onlab_model_dropout")
-    helper_functions.evaluate(dspath, "onlab_model_dropout")
+    #train(model_switch_norm.NestedUnet, "onlab_model_switchnorm")
+    #helper_functions.evaluate(dspath, "onlab_model_switchnorm")
 
-    train(model_switchnorm_dropout.NestedUnet, "onlab_model_switchnorm_dropout")
-    helper_functions.evaluate(dspath, "onlab_model_switchnorm_dropout")
+    #train(model_dropout.NestedUnet, "onlab_model_dropout")
+    #helper_functions.evaluate(dspath, "onlab_model_dropout")
+
+    #train(model_switchnorm_dropout.NestedUnet, "model_switchnorm_dropout_autoimg_cut_trained", "model_switchnorm_dropout_autoimg_cut")
+    helper_functions.evaluate(dspath, "model_switchnorm_dropout_autoimg_cut_trained")
 
     print("Training completed!")
     print(torch.cuda.max_memory_reserved(torch.device("cuda")))

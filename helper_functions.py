@@ -20,6 +20,7 @@ def evaluate(dspath, modelname):
     with torch.no_grad():
         model.eval()
         x = x.to(device)
+        x = x[:,0:9, :,:]
         out = model(x)
 
         out = out.cpu().detach().numpy()
@@ -52,10 +53,10 @@ def evaluate(dspath, modelname):
     plt.savefig("evals/" + modelname + "_evaluate.png")
     plt.close()
 
-def translate_full(dspath):
-    model = torch.load("drive/MyDrive/onlab_model_test.pt")
+def translate_full(dspath, idx):
+    model = torch.load("trained_models/onlab_model_switchnorm_dropout40k.pt")
     ds = Vessel12Dataset(dspath)
-    ds.loadimage(2);
+    ds.loadimage(idx)
     dl = DataLoader(ds, shuffle=False)
     result = np.empty((ds.shape()[0], 512, 512))
 
@@ -69,7 +70,7 @@ def translate_full(dspath):
             print(j)
             result[j, :, :] = pred
 
-    scipy.io.savemat(r'drive/Shareddrives/Enforced Privacy Demotion/dam_onlab/recognition.mat', {"img": result})
+    scipy.io.savemat(r'fld/processed_cts/ct' + str(idx), {"img": result}, do_compression=True)
 
 def dataset_distribution(dspath):
     ds = Vessel12DatasetRepresentative(dspath)
